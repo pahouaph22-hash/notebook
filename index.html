@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>สมุดโน้ตอัจฉริยะ · Smart Notebook</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Noto+Sans+Lao:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+/* ============================ DESIGN TOKENS ============================ */
+:root{
+  --ink:        #16233a;   /* หมึกเข้ม — ตัวอักษรหลัก */
+  --ink-soft:   #5b667f;
+  --ink-faint:  #97a1b4;
+  --paper:      #f5f6f9;   /* พื้นหลังกระดาษ */
+  --surface:    #ffffff;
+  --line:       #e6e9f0;
+  --line-soft:  #eef0f5;
+  --brand:      #2f3e63;   /* น้ำเงินหมึก */
+  --brand-ink:  #1f2b47;
+  --hl:         #f6b93b;   /* ไฮไลต์เหลือง — จุดเด่นของ AI */
+  --hl-soft:    #fff7e3;
+  --hl-line:    #f2d492;
+  --danger:     #e0563f;
+  --ok:         #2e9e6b;
+  --radius:     14px;
+  --radius-sm:  9px;
+  --shadow:     0 1px 2px rgba(22,35,58,.04), 0 8px 24px rgba(22,35,58,.06);
+  --shadow-sm:  0 1px 2px rgba(22,35,58,.06);
+  --font: 'IBM Plex Sans Thai','Noto Sans Lao', system-ui, -apple-system, sans-serif;
+}
+*{ box-sizing:border-box; margin:0; padding:0; }
+html,body{ height:100%; }
+body{
+  font-family:var(--font);
+  background:var(--paper);
+  color:var(--ink);
+  font-size:15px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+button{ font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+input,textarea{ font-family:inherit; color:var(--ink); }
+::selection{ background:var(--hl); color:var(--brand-ink); }
+
+/* ============================ AUTH SCREEN ============================ */
+#auth{
+  min-height:100dvh; display:grid; place-items:center; padding:24px;
+  background:
+    radial-gradient(1200px 500px at 15% -10%, #eef1f8 0%, transparent 60%),
+    radial-gradient(900px 500px at 100% 110%, #fdf5e4 0%, transparent 55%),
+    var(--paper);
+}
+.auth-card{
+  width:100%; max-width:400px; background:var(--surface);
+  border:1px solid var(--line); border-radius:20px; padding:34px 30px;
+  box-shadow:var(--shadow);
+}
+.brand{ display:flex; align-items:center; gap:11px; }
+.brand-mark{
+  width:38px; height:38px; border-radius:11px; flex:none;
+  background:linear-gradient(150deg, var(--brand) 0%, #46598a 100%);
+  display:grid; place-items:center; position:relative;
+  box-shadow:0 4px 12px rgba(47,62,99,.28);
+}
+.brand-mark::after{ /* แถบไฮไลต์เล็กๆ เหมือนคั่นหน้า */
+  content:""; position:absolute; top:8px; right:-3px;
+  width:6px; height:15px; border-radius:2px; background:var(--hl);
+  box-shadow:0 1px 3px rgba(0,0,0,.2);
+}
+.brand-mark svg{ width:20px; height:20px; }
+.brand-name{ font-weight:700; font-size:17px; letter-spacing:-.01em; line-height:1.1; }
+.brand-sub{ font-size:11.5px; color:var(--ink-faint); font-weight:500; }
+.auth-card h1{ font-size:20px; font-weight:700; margin:22px 0 4px; letter-spacing:-.01em; }
+.auth-card .lead{ color:var(--ink-soft); font-size:13.5px; margin-bottom:22px; }
+.field{ margin-bottom:13px; }
+.field label{ display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px; }
+.field input{
+  width:100%; padding:11px 13px; font-size:14.5px;
+  border:1px solid var(--line); border-radius:var(--radius-sm); background:#fbfcfe;
+  transition:border-color .15s, box-shadow .15s;
+}
+.field input:focus{ outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(47,62,99,.12); background:#fff; }
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  padding:11px 16px; border-radius:var(--radius-sm); font-weight:600; font-size:14.5px;
+  transition:transform .08s, background .15s, box-shadow .15s;
+}
+.btn:active{ transform:translateY(1px); }
+.btn-primary{ background:var(--brand); color:#fff; width:100%; box-shadow:0 4px 12px rgba(47,62,99,.25); }
+.btn-primary:hover{ background:var(--brand-ink); }
+.btn-primary:disabled{ opacity:.6; cursor:default; }
+.auth-switch{ text-align:center; font-size:13px; color:var(--ink-soft); margin-top:16px; }
+.auth-switch button{ color:var(--brand); font-weight:600; }
+.auth-msg{ font-size:12.5px; text-align:center; margin-top:12px; min-height:16px; }
+.auth-msg.err{ color:var(--danger); }
+.auth-msg.ok{ color:var(--ok); }
+
+/* ============================ APP SHELL ============================ */
+#app{ display:none; height:100dvh; grid-template-rows:auto 1fr; }
+.topbar{
+  display:flex; align-items:center; gap:12px; padding:11px 18px;
+  background:var(--surface); border-bottom:1px solid var(--line); z-index:20;
+}
+.topbar .brand-name{ font-size:15.5px; }
+.topbar .brand-mark{ width:32px; height:32px; }
+.topbar .brand-mark svg{ width:17px; height:17px; }
+.spacer{ flex:1; }
+.lang-switch{ display:flex; gap:2px; background:var(--paper); padding:3px; border-radius:9px; border:1px solid var(--line); }
+.lang-switch button{ padding:4px 9px; font-size:12px; font-weight:600; border-radius:6px; color:var(--ink-soft); }
+.lang-switch button.on{ background:var(--surface); color:var(--brand); box-shadow:var(--shadow-sm); }
+.user-chip{ display:flex; align-items:center; gap:8px; }
+.avatar{
+  width:31px; height:31px; border-radius:50%; flex:none;
+  background:linear-gradient(150deg,#46598a,var(--brand)); color:#fff;
+  display:grid; place-items:center; font-size:13px; font-weight:700;
+}
+.icon-btn{ width:33px; height:33px; border-radius:8px; display:grid; place-items:center; color:var(--ink-soft); }
+.icon-btn:hover{ background:var(--paper); color:var(--ink); }
+.icon-btn svg{ width:18px; height:18px; }
+
+/* ============================ WORKSPACE ============================ */
+.workspace{ display:grid; grid-template-columns:232px 300px 1fr; min-height:0; }
+.pane{ min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+.pane-subjects{ background:var(--surface); border-right:1px solid var(--line); }
+.pane-notes{ background:#fbfcfe; border-right:1px solid var(--line); }
+.pane-editor{ background:var(--paper); }
+.pane-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 15px 10px; flex:none;
+}
+.pane-head h2{ font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint); }
+.add-btn{ display:inline-flex; align-items:center; gap:5px; font-size:12.5px; font-weight:600; color:var(--brand); padding:5px 9px; border-radius:7px; }
+.add-btn:hover{ background:var(--paper); }
+.add-btn svg{ width:14px; height:14px; }
+.scroll{ overflow-y:auto; padding:4px 10px 16px; flex:1; }
+.scroll::-webkit-scrollbar{ width:9px; }
+.scroll::-webkit-scrollbar-thumb{ background:#d9dee9; border-radius:9px; border:3px solid transparent; background-clip:padding-box; }
+
+/* ---- subjects: แท็บสีแบบคั่นสมุด ---- */
+.subject{
+  display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:9px;
+  cursor:pointer; position:relative; margin-bottom:2px; transition:background .12s;
+}
+.subject:hover{ background:var(--paper); }
+.subject.on{ background:var(--paper); }
+.subject.on::before{
+  content:""; position:absolute; left:-10px; top:6px; bottom:6px; width:4px;
+  border-radius:0 4px 4px 0; background:var(--subject-color, var(--brand));
+}
+.subject .dot{ width:11px; height:11px; border-radius:4px; flex:none; background:var(--subject-color,var(--brand)); box-shadow:inset 0 -1px 2px rgba(0,0,0,.15); }
+.subject .s-name{ font-size:14px; font-weight:500; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.subject .s-count{ font-size:11.5px; color:var(--ink-faint); font-weight:600; flex:none; }
+.subject .s-del{ opacity:0; color:var(--ink-faint); padding:2px; border-radius:5px; flex:none; }
+.subject:hover .s-del{ opacity:1; }
+.subject .s-del:hover{ color:var(--danger); background:#fff; }
+.subject .s-del svg{ width:14px; height:14px; display:block; }
+
+/* ---- notes list ---- */
+.note-card{
+  padding:11px 12px; border-radius:10px; cursor:pointer; margin-bottom:5px;
+  border:1px solid transparent; transition:background .12s, border-color .12s;
+}
+.note-card:hover{ background:var(--surface); border-color:var(--line-soft); }
+.note-card.on{ background:var(--surface); border-color:var(--line); box-shadow:var(--shadow-sm); }
+.note-card .n-title{ font-size:14px; font-weight:600; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.note-card .n-title.empty{ color:var(--ink-faint); font-weight:500; }
+.note-card .n-preview{ font-size:12.5px; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.note-card .n-meta{ display:flex; align-items:center; gap:6px; margin-top:6px; font-size:11px; color:var(--ink-faint); }
+.badge-ai{ display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:#a9781a; background:var(--hl-soft); border:1px solid var(--hl-line); padding:1px 6px; border-radius:20px; }
+.badge-ai svg{ width:10px; height:10px; }
+
+/* ---- editor ---- */
+.editor-wrap{ overflow-y:auto; flex:1; }
+.editor-inner{ max-width:760px; margin:0 auto; padding:26px 30px 90px; }
+.note-title-input{
+  width:100%; border:none; background:transparent; font-size:26px; font-weight:700;
+  letter-spacing:-.015em; color:var(--ink); padding:2px 0; margin-bottom:4px;
+}
+.note-title-input:focus{ outline:none; }
+.note-title-input::placeholder{ color:#c3cad8; }
+.save-state{ font-size:12px; color:var(--ink-faint); margin-bottom:16px; height:16px; font-weight:500; }
+.note-content-input{
+  width:100%; border:none; background:transparent; resize:none; font-size:15.5px;
+  line-height:1.75; color:#26334b; min-height:240px; padding:0;
+}
+.note-content-input:focus{ outline:none; }
+.note-content-input::placeholder{ color:#c3cad8; }
+
+/* ---- AI summary card (signature) ---- */
+.summary-block{ margin-top:26px; }
+.ai-launch{
+  display:flex; align-items:center; gap:12px; padding:15px 16px;
+  border:1px dashed var(--hl-line); background:var(--hl-soft); border-radius:var(--radius);
+}
+.ai-launch .txt{ flex:1; }
+.ai-launch .txt b{ font-size:14px; }
+.ai-launch .txt span{ display:block; font-size:12.5px; color:#9a7a34; }
+.btn-ai{
+  background:var(--hl); color:#5c430c; font-weight:700; padding:9px 15px; border-radius:9px;
+  display:inline-flex; align-items:center; gap:7px; font-size:13.5px; box-shadow:0 3px 9px rgba(246,185,59,.35); flex:none;
+}
+.btn-ai:hover{ filter:brightness(1.03); }
+.btn-ai:disabled{ opacity:.65; cursor:default; }
+.btn-ai svg{ width:15px; height:15px; }
+
+.summary-card{
+  border:1px solid var(--hl-line); background:linear-gradient(180deg,var(--hl-soft),#fffdf7);
+  border-radius:var(--radius); padding:0; overflow:hidden; box-shadow:var(--shadow-sm);
+}
+.summary-card .sc-head{
+  display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid var(--hl-line);
+}
+.summary-card .sc-head .ic{ width:24px; height:24px; border-radius:7px; background:var(--hl); display:grid; place-items:center; }
+.summary-card .sc-head .ic svg{ width:14px; height:14px; color:#5c430c; }
+.summary-card .sc-head b{ font-size:13.5px; color:#7a5b16; flex:1; }
+.summary-card .sc-head .re{ font-size:12px; font-weight:600; color:#a9781a; padding:4px 9px; border-radius:7px; }
+.summary-card .sc-head .re:hover{ background:#fff2d4; }
+.summary-body{ padding:6px 20px 18px; }
+.summary-body h1,.summary-body h2,.summary-body h3{ font-size:14.5px; font-weight:700; color:var(--brand-ink); margin:16px 0 7px; }
+.summary-body h1{ font-size:16px; }
+.summary-body p{ margin:7px 0; font-size:14px; color:#3a4256; }
+.summary-body ul,.summary-body ol{ margin:7px 0 7px 4px; padding-left:18px; }
+.summary-body li{ margin:4px 0; font-size:14px; color:#3a4256; }
+.summary-body strong{ background:linear-gradient(180deg,transparent 62%, #ffe6a1 62%); padding:0 1px; font-weight:600; }
+.summary-body code{ background:#fff3d6; padding:1px 5px; border-radius:5px; font-size:13px; }
+.sc-time{ font-size:11px; color:#b79a54; padding:0 20px 14px; }
+
+/* empty states */
+.empty{ text-align:center; padding:48px 24px; color:var(--ink-faint); margin:auto; }
+.empty svg{ width:40px; height:40px; margin-bottom:12px; opacity:.55; }
+.empty p{ font-size:13.5px; max-width:240px; margin:0 auto; }
+.empty .btn{ margin-top:16px; }
+
+/* mobile back button */
+.back-btn{ display:none; align-items:center; gap:5px; font-size:13px; font-weight:600; color:var(--brand); padding:6px 4px; }
+.back-btn svg{ width:16px; height:16px; }
+
+/* ---- color picker (add subject) ---- */
+.modal-bg{
+  position:fixed; inset:0; background:rgba(22,35,58,.42); backdrop-filter:blur(2px);
+  display:none; place-items:center; z-index:50; padding:20px;
+}
+.modal-bg.show{ display:grid; }
+.modal{ background:var(--surface); border-radius:16px; padding:22px; width:100%; max-width:360px; box-shadow:var(--shadow); }
+.modal h3{ font-size:16px; font-weight:700; margin-bottom:16px; }
+.swatches{ display:flex; flex-wrap:wrap; gap:9px; margin:12px 0 20px; }
+.swatch{ width:30px; height:30px; border-radius:9px; cursor:pointer; position:relative; transition:transform .1s; }
+.swatch:hover{ transform:scale(1.08); }
+.swatch.on::after{ content:"✓"; position:absolute; inset:0; display:grid; place-items:center; color:#fff; font-size:14px; font-weight:800; text-shadow:0 1px 2px rgba(0,0,0,.3); }
+.modal-actions{ display:flex; gap:9px; }
+.modal-actions .btn{ flex:1; }
+.btn-ghost{ background:var(--paper); color:var(--ink-soft); }
+.btn-ghost:hover{ background:var(--line-soft); }
+
+/* toast */
+#toast{
+  position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--ink); color:#fff; padding:10px 18px; border-radius:10px; font-size:13.5px; font-weight:500;
+  opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:80; box-shadow:var(--shadow);
+}
+#toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* spinner */
+.spin{ width:15px; height:15px; border:2px solid currentColor; border-top-color:transparent; border-radius:50%; animation:sp .6s linear infinite; }
+@keyframes sp{ to{ transform:rotate(360deg); } }
+.fade-in{ animation:fade .25s ease; }
+@keyframes fade{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:none; } }
+
+/* ============================ RESPONSIVE ============================ */
+@media (max-width: 900px){
+  .workspace{ grid-template-columns:1fr; }
+  .pane{ display:none; }
+  .pane.active{ display:flex; }
+  body[data-view="subjects"] .pane-subjects{ display:flex; }
+  body[data-view="notes"]    .pane-notes{ display:flex; }
+  body[data-view="editor"]   .pane-editor{ display:flex; }
+  .pane-subjects,.pane-notes,.pane-editor{ border-right:none; }
+  .back-btn{ display:inline-flex; }
+  .editor-inner{ padding:20px 18px 90px; }
+  .note-title-input{ font-size:23px; }
+}
+@media (prefers-reduced-motion: reduce){
+  *{ animation:none !important; transition:none !important; }
+}
+</style>
+</head>
+<body data-view="subjects">
+
+<!-- ==================== AUTH ==================== -->
+<section id="auth">
+  <div class="auth-card">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14l-4-2-4 2-4-2z"/><path d="M9 7h6M9 11h6"/></svg>
+      </div>
+      <div>
+        <div class="brand-name" data-i18n="appName">สมุดโน้ตอัจฉริยะ</div>
+        <div class="brand-sub">Smart Notebook</div>
+      </div>
+    </div>
+    <h1 id="authTitle" data-i18n="signInTitle">เข้าสู่ระบบ</h1>
+    <p class="lead" id="authLead" data-i18n="signInLead">จดบันทึกบทเรียน แยกตามวิชา พร้อมสรุปด้วย AI</p>
+
+    <div class="field" id="nameField" style="display:none">
+      <label data-i18n="displayName">ชื่อที่แสดง</label>
+      <input id="inName" type="text" autocomplete="name" />
+    </div>
+    <div class="field">
+      <label data-i18n="email">อีเมล</label>
+      <input id="inEmail" type="email" autocomplete="email" />
+    </div>
+    <div class="field">
+      <label data-i18n="password">รหัสผ่าน</label>
+      <input id="inPass" type="password" autocomplete="current-password" />
+    </div>
+
+    <button class="btn btn-primary" id="btnAuth" data-i18n="signIn">เข้าสู่ระบบ</button>
+    <div class="auth-msg" id="authMsg"></div>
+    <div class="auth-switch">
+      <span id="switchText" data-i18n="noAccount">ยังไม่มีบัญชี?</span>
+      <button id="switchBtn" data-i18n="signUp">สมัครสมาชิก</button>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== APP ==================== -->
+<main id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14l-4-2-4 2-4-2z"/><path d="M9 7h6M9 11h6"/></svg>
+      </div>
+      <div class="brand-name" data-i18n="appName">สมุดโน้ตอัจฉริยะ</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="lang-switch" id="langSwitch">
+      <button data-lang="th">ไทย</button>
+      <button data-lang="lo">ລາວ</button>
+      <button data-lang="en">EN</button>
+    </div>
+    <div class="user-chip">
+      <div class="avatar" id="avatar">?</div>
+      <button class="icon-btn" id="btnLogout" title="ออกจากระบบ">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <!-- subjects -->
+    <div class="pane pane-subjects active">
+      <div class="pane-head">
+        <h2 data-i18n="subjects">วิชา</h2>
+        <button class="add-btn" id="btnAddSubject">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          <span data-i18n="add">เพิ่ม</span>
+        </button>
+      </div>
+      <div class="scroll" id="subjectList"></div>
+    </div>
+
+    <!-- notes -->
+    <div class="pane pane-notes">
+      <div class="pane-head">
+        <button class="back-btn" data-back="subjects">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          <span data-i18n="subjects">วิชา</span>
+        </button>
+        <h2 id="notesPaneTitle" data-i18n="notes">โน้ต</h2>
+        <button class="add-btn" id="btnAddNote">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          <span data-i18n="newNote">โน้ตใหม่</span>
+        </button>
+      </div>
+      <div class="scroll" id="noteList"></div>
+    </div>
+
+    <!-- editor -->
+    <div class="pane pane-editor">
+      <div class="editor-wrap" id="editorWrap"></div>
+    </div>
+  </div>
+</main>
+
+<!-- add-subject modal -->
+<div class="modal-bg" id="subjectModal">
+  <div class="modal">
+    <h3 data-i18n="newSubject">เพิ่มวิชาใหม่</h3>
+    <div class="field">
+      <label data-i18n="subjectName">ชื่อวิชา</label>
+      <input id="inSubjectName" type="text" placeholder="เช่น คณิตศาสตร์" />
+    </div>
+    <label style="font-size:12.5px;font-weight:600;color:var(--ink-soft)" data-i18n="pickColor">เลือกสี</label>
+    <div class="swatches" id="swatches"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnCancelSubject" data-i18n="cancel">ยกเลิก</button>
+      <button class="btn btn-primary" id="btnSaveSubject" data-i18n="create">สร้าง</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* =================== CONFIG — กรอกค่าของโปรเจกต์ Supabase =================== */
+  var CONFIG = {
+    SUPABASE_URL: "https://vwoyadkgmffxhxayfljz.supabase.co",
+    SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3b3lhZGtnbWZmeGh4YXlmbGp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMDY0NzYsImV4cCI6MjA5ODU4MjQ3Nn0.58wyW1G5cbApOK38BqoOz-7fgYe2iClKziyNiam-Pac"
+  };
+  /* ========================================================================= */
+
+  var sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+  var $ = function(s, r){ return (r||document).querySelector(s); };
+
+  /* =================== i18n =================== */
+  var I18N = {
+    th:{
+      appName:"สมุดโน้ตอัจฉริยะ",
+      signInTitle:"เข้าสู่ระบบ", signUpTitle:"สมัครสมาชิก",
+      signInLead:"จดบันทึกบทเรียน แยกตามวิชา พร้อมสรุปด้วย AI",
+      signUpLead:"สร้างบัญชีเพื่อเริ่มจดโน้ตของคุณ",
+      displayName:"ชื่อที่แสดง", email:"อีเมล", password:"รหัสผ่าน",
+      signIn:"เข้าสู่ระบบ", signUp:"สมัครสมาชิก",
+      noAccount:"ยังไม่มีบัญชี?", haveAccount:"มีบัญชีแล้ว?",
+      subjects:"วิชา", add:"เพิ่ม", notes:"โน้ต", newNote:"โน้ตใหม่",
+      newSubject:"เพิ่มวิชาใหม่", subjectName:"ชื่อวิชา", pickColor:"เลือกสี",
+      cancel:"ยกเลิก", create:"สร้าง",
+      noteTitlePh:"ชื่อบทเรียน...", noteContentPh:"เริ่มจดบันทึกที่นี่...",
+      untitled:"ไม่มีชื่อ", saving:"กำลังบันทึก...", saved:"บันทึกแล้ว",
+      aiTitle:"สรุปด้วย AI", aiDesc:"ให้ AI สรุปใจความสำคัญของบทเรียนนี้",
+      summarize:"สรุปให้", summarizing:"กำลังสรุป...", regenerate:"สรุปใหม่",
+      aiSummaryHead:"สรุปโดย AI",
+      emptySubjectsTitle:"ยังไม่มีวิชา", emptySubjectsDesc:"เพิ่มวิชาแรกเพื่อเริ่มจดบันทึก",
+      addFirstSubject:"เพิ่มวิชาแรก",
+      pickSubject:"เลือกวิชาทางซ้ายเพื่อดูโน้ต",
+      emptyNotesTitle:"ยังไม่มีโน้ต", emptyNotesDesc:"กดปุ่ม \"โน้ตใหม่\" เพื่อเริ่มบันทึก",
+      pickNote:"เลือกโน้ตเพื่อเริ่มเขียน หรือสร้างโน้ตใหม่",
+      confirmDelSubject:"ลบวิชานี้และโน้ตทั้งหมดในวิชา?",
+      confirmDelNote:"ลบโน้ตนี้?", delete:"ลบ",
+      tooShort:"เนื้อหาน้อยเกินไป เขียนเพิ่มก่อนสรุปนะ",
+      aiError:"สรุปไม่สำเร็จ ลองใหม่อีกครั้ง"
+    },
+    lo:{
+      appName:"ປຶ້ມບັນທຶກອັດສະລິຍະ",
+      signInTitle:"ເຂົ້າສູ່ລະບົບ", signUpTitle:"ລົງທະບຽນ",
+      signInLead:"ຈົດບົດຮຽນ ແຍກຕາມວິຊາ ພ້ອມສະຫຼຸບດ້ວຍ AI",
+      signUpLead:"ສ້າງບັນຊີເພື່ອເລີ່ມຈົດໂນ້ດ",
+      displayName:"ຊື່ສະແດງ", email:"ອີເມວ", password:"ລະຫັດຜ່ານ",
+      signIn:"ເຂົ້າສູ່ລະບົບ", signUp:"ລົງທະບຽນ",
+      noAccount:"ຍັງບໍ່ມີບັນຊີ?", haveAccount:"ມີບັນຊີແລ້ວ?",
+      subjects:"ວິຊາ", add:"ເພີ່ມ", notes:"ໂນ້ດ", newNote:"ໂນ້ດໃໝ່",
+      newSubject:"ເພີ່ມວິຊາໃໝ່", subjectName:"ຊື່ວິຊາ", pickColor:"ເລືອກສີ",
+      cancel:"ຍົກເລີກ", create:"ສ້າງ",
+      noteTitlePh:"ຊື່ບົດຮຽນ...", noteContentPh:"ເລີ່ມຈົດບັນທຶກທີ່ນີ້...",
+      untitled:"ບໍ່ມີຊື່", saving:"ກຳລັງບັນທຶກ...", saved:"ບັນທຶກແລ້ວ",
+      aiTitle:"ສະຫຼຸບດ້ວຍ AI", aiDesc:"ໃຫ້ AI ສະຫຼຸບໃຈຄວາມສຳຄັນຂອງບົດຮຽນນີ້",
+      summarize:"ສະຫຼຸບໃຫ້", summarizing:"ກຳລັງສະຫຼຸບ...", regenerate:"ສະຫຼຸບໃໝ່",
+      aiSummaryHead:"ສະຫຼຸບໂດຍ AI",
+      emptySubjectsTitle:"ຍັງບໍ່ມີວິຊາ", emptySubjectsDesc:"ເພີ່ມວິຊາທຳອິດເພື່ອເລີ່ມຈົດ",
+      addFirstSubject:"ເພີ່ມວິຊາທຳອິດ",
+      pickSubject:"ເລືອກວິຊາທາງຊ້າຍເພື່ອເບິ່ງໂນ້ດ",
+      emptyNotesTitle:"ຍັງບໍ່ມີໂນ້ດ", emptyNotesDesc:"ກົດ \"ໂນ້ດໃໝ່\" ເພື່ອເລີ່ມ",
+      pickNote:"ເລືອກໂນ້ດເພື່ອເລີ່ມຂຽນ ຫຼື ສ້າງໃໝ່",
+      confirmDelSubject:"ລຶບວິຊານີ້ ແລະ ໂນ້ດທັງໝົດ?",
+      confirmDelNote:"ລຶບໂນ້ດນີ້?", delete:"ລຶບ",
+      tooShort:"ເນື້ອຫານ້ອຍເກີນໄປ ຂຽນເພີ່ມກ່ອນ",
+      aiError:"ສະຫຼຸບບໍ່ສຳເລັດ ລອງໃໝ່"
+    },
+    en:{
+      appName:"Smart Notebook",
+      signInTitle:"Sign in", signUpTitle:"Create account",
+      signInLead:"Take lecture notes by subject, with AI summaries",
+      signUpLead:"Create an account to start your notes",
+      displayName:"Display name", email:"Email", password:"Password",
+      signIn:"Sign in", signUp:"Sign up",
+      noAccount:"No account yet?", haveAccount:"Already have an account?",
+      subjects:"Subjects", add:"Add", notes:"Notes", newNote:"New note",
+      newSubject:"New subject", subjectName:"Subject name", pickColor:"Pick a color",
+      cancel:"Cancel", create:"Create",
+      noteTitlePh:"Lesson title...", noteContentPh:"Start writing here...",
+      untitled:"Untitled", saving:"Saving...", saved:"Saved",
+      aiTitle:"AI Summary", aiDesc:"Let AI summarize the key points of this note",
+      summarize:"Summarize", summarizing:"Summarizing...", regenerate:"Regenerate",
+      aiSummaryHead:"AI Summary",
+      emptySubjectsTitle:"No subjects yet", emptySubjectsDesc:"Add your first subject to start",
+      addFirstSubject:"Add first subject",
+      pickSubject:"Pick a subject on the left to see notes",
+      emptyNotesTitle:"No notes yet", emptyNotesDesc:"Tap \"New note\" to start",
+      pickNote:"Select a note to start writing, or create a new one",
+      confirmDelSubject:"Delete this subject and all its notes?",
+      confirmDelNote:"Delete this note?", delete:"Delete",
+      tooShort:"Too short — write a bit more first",
+      aiError:"Summary failed, please try again"
+    }
+  };
+  var lang = localStorage.getItem("nb_lang") || "th";
+  function t(k){ return (I18N[lang] && I18N[lang][k]) || (I18N.th[k]) || k; }
+  function applyI18n(){
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-i18n]").forEach(function(el){ el.textContent = t(el.getAttribute("data-i18n")); });
+    $("#langSwitch").querySelectorAll("button").forEach(function(b){ b.classList.toggle("on", b.dataset.lang===lang); });
+    // dynamic placeholders / auth text
+    refreshAuthTexts();
+    if(state.user) render();
+  }
+
+  /* =================== STATE =================== */
+  var state = { user:null, subjects:[], subjectId:null, notes:[], noteId:null };
+  var COLORS = ["#2563EB","#0891B2","#059669","#65A30D","#D97706","#DC2626","#DB2777","#7C3AED","#4F46E5","#0F766E"];
+
+  /* =================== TOAST =================== */
+  var toastT;
+  function toast(msg){
+    var el=$("#toast"); el.textContent=msg; el.classList.add("show");
+    clearTimeout(toastT); toastT=setTimeout(function(){ el.classList.remove("show"); },2200);
+  }
+
+  /* =================== AUTH UI =================== */
+  var mode = "signin";
+  function refreshAuthTexts(){
+    $("#authTitle").textContent = t(mode==="signin"?"signInTitle":"signUpTitle");
+    $("#authLead").textContent  = t(mode==="signin"?"signInLead":"signUpLead");
+    $("#btnAuth").textContent   = t(mode==="signin"?"signIn":"signUp");
+    $("#switchText").textContent= t(mode==="signin"?"noAccount":"haveAccount");
+    $("#switchBtn").textContent = t(mode==="signin"?"signUp":"signIn");
+    $("#nameField").style.display = mode==="signup" ? "block" : "none";
+    $("#inPass").setAttribute("autocomplete", mode==="signin"?"current-password":"new-password");
+  }
+  $("#switchBtn").addEventListener("click", function(){
+    mode = mode==="signin" ? "signup" : "signin";
+    $("#authMsg").textContent=""; refreshAuthTexts();
+  });
+
+  function authMsg(msg, ok){
+    var el=$("#authMsg"); el.textContent=msg; el.className="auth-msg "+(ok?"ok":"err");
+  }
+
+  $("#btnAuth").addEventListener("click", doAuth);
+  $("#inPass").addEventListener("keydown", function(e){ if(e.key==="Enter") doAuth(); });
+
+  async function doAuth(){
+    var email=$("#inEmail").value.trim(), pass=$("#inPass").value;
+    if(!email || !pass){ authMsg("กรุณากรอกอีเมลและรหัสผ่าน"); return; }
+    var btn=$("#btnAuth"); btn.disabled=true;
+    try{
+      if(mode==="signup"){
+        var name=$("#inName").value.trim() || email.split("@")[0];
+        var r=await sb.auth.signUp({ email:email, password:pass, options:{ data:{ display_name:name } } });
+        if(r.error) throw r.error;
+        if(!r.data.session){ authMsg("สมัครสำเร็จ! ตรวจอีเมลเพื่อยืนยัน แล้วเข้าสู่ระบบ", true); mode="signin"; refreshAuthTexts(); btn.disabled=false; return; }
+      }else{
+        var r2=await sb.auth.signInWithPassword({ email:email, password:pass });
+        if(r2.error) throw r2.error;
+      }
+    }catch(err){ authMsg(err.message || "เกิดข้อผิดพลาด"); btn.disabled=false; }
+  }
+
+  $("#btnLogout").addEventListener("click", async function(){ await sb.auth.signOut(); location.reload(); });
+
+  /* =================== SESSION =================== */
+  sb.auth.onAuthStateChange(function(_e, session){
+    if(session && session.user){ enterApp(session.user); }
+  });
+  (async function init(){
+    applyI18n();
+    var s = await sb.auth.getSession();
+    if(s.data.session){ enterApp(s.data.session.user); }
+  })();
+
+  async function enterApp(user){
+    if(state.user) return;
+    state.user = user;
+    $("#auth").style.display="none";
+    $("#app").style.display="grid";
+    var nm = (user.user_metadata && user.user_metadata.display_name) || user.email || "?";
+    $("#avatar").textContent = nm.trim().charAt(0).toUpperCase();
+    await loadSubjects();
+  }
+
+  /* =================== SUBJECTS =================== */
+  async function loadSubjects(){
+    var r = await sb.from("subjects").select("*, notes(count)").order("sort_order").order("created_at");
+    if(r.error){ toast(r.error.message); return; }
+    state.subjects = r.data || [];
+    if(!state.subjectId && state.subjects.length) state.subjectId = state.subjects[0].id;
+    if(state.subjectId) await loadNotes(state.subjectId, true);
+    render();
+  }
+
+  function subjectCount(s){ return (s.notes && s.notes[0] && s.notes[0].count) || 0; }
+
+  async function createSubject(name, color){
+    var order = state.subjects.length;
+    var r = await sb.from("subjects").insert({ user_id:state.user.id, name:name, color:color, sort_order:order }).select().single();
+    if(r.error){ toast(r.error.message); return; }
+    state.subjectId = r.data.id;
+    await loadSubjects();
+    if(window.innerWidth<=900) setView("notes");
+  }
+
+  async function deleteSubject(id){
+    if(!confirm(t("confirmDelSubject"))) return;
+    var r = await sb.from("subjects").delete().eq("id", id);
+    if(r.error){ toast(r.error.message); return; }
+    if(state.subjectId===id){ state.subjectId=null; state.notes=[]; state.noteId=null; }
+    await loadSubjects();
+  }
+
+  /* =================== NOTES =================== */
+  async function loadNotes(subjectId, keepSelection){
+    var r = await sb.from("notes").select("*").eq("subject_id", subjectId).order("updated_at",{ascending:false});
+    if(r.error){ toast(r.error.message); return; }
+    state.notes = r.data || [];
+    if(!keepSelection || !state.notes.some(function(n){return n.id===state.noteId;})){
+      state.noteId = state.notes.length ? state.notes[0].id : null;
+    }
+  }
+
+  async function createNote(){
+    if(!state.subjectId) return;
+    var r = await sb.from("notes").insert({ user_id:state.user.id, subject_id:state.subjectId, title:"", content:"" }).select().single();
+    if(r.error){ toast(r.error.message); return; }
+    state.notes.unshift(r.data);
+    state.noteId = r.data.id;
+    render();
+    if(window.innerWidth<=900) setView("editor");
+    setTimeout(function(){ var ti=$("#noteTitle"); if(ti) ti.focus(); },60);
+  }
+
+  async function deleteNote(id){
+    if(!confirm(t("confirmDelNote"))) return;
+    var r=await sb.from("notes").delete().eq("id",id);
+    if(r.error){ toast(r.error.message); return; }
+    state.notes = state.notes.filter(function(n){return n.id!==id;});
+    if(state.noteId===id) state.noteId = state.notes.length?state.notes[0].id:null;
+    loadSubjects(); // refresh counts
+    render();
+  }
+
+  var saveTimer, saveInFlight=false;
+  function scheduleSave(){
+    var el=$("#saveState"); if(el) el.textContent=t("saving");
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(saveNote, 800);
+  }
+  async function saveNote(){
+    var n = currentNote(); if(!n) return;
+    saveInFlight=true;
+    var r=await sb.from("notes").update({ title:n.title, content:n.content }).eq("id",n.id);
+    saveInFlight=false;
+    var el=$("#saveState");
+    if(r.error){ if(el) el.textContent=r.error.message; return; }
+    if(el) el.textContent=t("saved");
+    // update list preview without full re-render of editor
+    renderNoteList();
+  }
+
+  function currentNote(){ return state.notes.find(function(n){return n.id===state.noteId;}); }
+  function currentSubject(){ return state.subjects.find(function(s){return s.id===state.subjectId;}); }
+
+  /* =================== AI SUMMARY =================== */
+  async function summarize(){
+    var n=currentNote(); if(!n) return;
+    var text=(n.content||"").trim();
+    if(text.length<15){ toast(t("tooShort")); return; }
+    var btn=$("#btnAI");
+    if(btn){ btn.disabled=true; btn.innerHTML='<span class="spin"></span> '+t("summarizing"); }
+    if(saveInFlight || $("#saveState").textContent===t("saving")) await saveNote();
+    try{
+      var res=await fetch(CONFIG.SUPABASE_URL+"/functions/v1/summarize",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "apikey":CONFIG.SUPABASE_ANON_KEY,
+          "Authorization":"Bearer "+CONFIG.SUPABASE_ANON_KEY
+        },
+        body:JSON.stringify({ title:n.title, content:n.content, lang:lang })
+      });
+      var data=await res.json();
+      if(!res.ok || !data.summary) throw new Error(data.error||"error");
+      n.summary=data.summary; n.summary_updated_at=new Date().toISOString();
+      await sb.from("notes").update({ summary:n.summary, summary_updated_at:n.summary_updated_at }).eq("id",n.id);
+      renderEditor(); renderNoteList();
+    }catch(err){
+      toast(t("aiError"));
+      if(btn){ btn.disabled=false; btn.innerHTML=aiIcon()+" "+t("summarize"); }
+    }
+  }
+
+  /* =================== RENDER =================== */
+  function icon(name){
+    var m={
+      plus:'<path d="M12 5v14M5 12h14"/>',
+      trash:'<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
+      book:'<path d="M4 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14l-4-2-4 2-4-2z"/>',
+      note:'<path d="M4 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14l-4-2-4 2-4-2z"/><path d="M9 7h6M9 11h6"/>'
+    };
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+(m[name]||"")+'</svg>';
+  }
+  function aiIcon(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 3.9L17.5 8l-3.9 1.6L12 13.5l-1.6-3.9L6.5 8l3.9-1.1z"/><path d="M18 14l.7 1.8L20.5 16.5l-1.8.7L18 19l-.7-1.8L15.5 16.5l1.8-.7z"/></svg>'; }
+  function esc(s){ return (s||"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+
+  function render(){ renderSubjects(); renderNoteList(); renderEditor(); }
+
+  function renderSubjects(){
+    var box=$("#subjectList");
+    if(!state.subjects.length){
+      box.innerHTML='<div class="empty">'+icon("book")+'<p><b>'+t("emptySubjectsTitle")+'</b><br>'+t("emptySubjectsDesc")+'</p>'
+        +'<button class="btn btn-primary" style="width:auto;padding:9px 16px" id="emptyAddSub">'+t("addFirstSubject")+'</button></div>';
+      var b=$("#emptyAddSub"); if(b) b.addEventListener("click",openSubjectModal);
+      return;
+    }
+    box.innerHTML = state.subjects.map(function(s){
+      return '<div class="subject '+(s.id===state.subjectId?"on":"")+'" style="--subject-color:'+esc(s.color)+'" data-id="'+s.id+'">'
+        +'<span class="dot"></span>'
+        +'<span class="s-name">'+esc(s.name)+'</span>'
+        +'<span class="s-count">'+subjectCount(s)+'</span>'
+        +'<button class="s-del" data-del="'+s.id+'" title="'+t("delete")+'">'+icon("trash")+'</button>'
+        +'</div>';
+    }).join("");
+    box.querySelectorAll(".subject").forEach(function(el){
+      el.addEventListener("click", async function(e){
+        if(e.target.closest(".s-del")) return;
+        state.subjectId=el.dataset.id; state.noteId=null;
+        await loadNotes(state.subjectId);
+        render();
+        if(window.innerWidth<=900) setView("notes");
+      });
+    });
+    box.querySelectorAll(".s-del").forEach(function(b){
+      b.addEventListener("click",function(e){ e.stopPropagation(); deleteSubject(b.dataset.del); });
+    });
+  }
+
+  function renderNoteList(){
+    var box=$("#noteList"), sub=currentSubject();
+    $("#notesPaneTitle").textContent = sub ? sub.name : t("notes");
+    if(!sub){
+      box.innerHTML='<div class="empty">'+icon("note")+'<p>'+t("pickSubject")+'</p></div>'; return;
+    }
+    if(!state.notes.length){
+      box.innerHTML='<div class="empty">'+icon("note")+'<p><b>'+t("emptyNotesTitle")+'</b><br>'+t("emptyNotesDesc")+'</p></div>'; return;
+    }
+    box.innerHTML = state.notes.map(function(n){
+      var title=(n.title||"").trim();
+      var preview=(n.content||"").replace(/\s+/g," ").trim().slice(0,70) || "—";
+      return '<div class="note-card '+(n.id===state.noteId?"on":"")+'" data-id="'+n.id+'">'
+        +'<div class="n-title '+(title?"":"empty")+'">'+esc(title||t("untitled"))+'</div>'
+        +'<div class="n-preview">'+esc(preview)+'</div>'
+        +'<div class="n-meta">'+ (n.summary?'<span class="badge-ai">'+aiIcon()+' AI</span>':'') +'<span>'+fmtDate(n.updated_at)+'</span></div>'
+        +'</div>';
+    }).join("");
+    box.querySelectorAll(".note-card").forEach(function(el){
+      el.addEventListener("click",function(){
+        state.noteId=el.dataset.id; renderEditor(); renderNoteList();
+        if(window.innerWidth<=900) setView("editor");
+      });
+    });
+  }
+
+  function renderEditor(){
+    var wrap=$("#editorWrap"), n=currentNote();
+    if(!n){
+      wrap.innerHTML='<div class="empty" style="height:100%;display:grid;place-content:center">'+icon("note")+'<p>'+t("pickNote")+'</p></div>';
+      return;
+    }
+    wrap.innerHTML =
+      '<div class="editor-inner fade-in">'
+      + '<button class="back-btn" data-back="notes" style="margin-bottom:10px">'+backIcon()+' <span>'+ (currentSubject()?esc(currentSubject().name):t("notes")) +'</span></button>'
+      + '<input id="noteTitle" class="note-title-input" placeholder="'+t("noteTitlePh")+'" value="'+esc(n.title)+'" />'
+      + '<div class="save-state" id="saveState"></div>'
+      + '<textarea id="noteContent" class="note-content-input" placeholder="'+t("noteContentPh")+'">'+esc(n.content)+'</textarea>'
+      + '<div class="summary-block" id="summaryBlock"></div>'
+      + '<div style="margin-top:22px;text-align:right">'
+      +   '<button class="icon-btn" id="btnDelNote" title="'+t("delete")+'" style="display:inline-grid;color:var(--ink-faint)">'+icon("trash")+'</button>'
+      + '</div>'
+      + '</div>';
+
+    var ti=$("#noteTitle"), ci=$("#noteContent");
+    ti.addEventListener("input",function(){ n.title=ti.value; scheduleSave(); });
+    ci.addEventListener("input",function(){ n.content=ci.value; autoGrow(ci); scheduleSave(); });
+    autoGrow(ci);
+    $("#btnDelNote").addEventListener("click",function(){ deleteNote(n.id); });
+    wrap.querySelectorAll("[data-back]").forEach(function(b){ b.addEventListener("click",function(){ setView(b.dataset.back); }); });
+    renderSummary(n);
+  }
+
+  function renderSummary(n){
+    var box=$("#summaryBlock"); if(!box) return;
+    if(!n.summary){
+      box.innerHTML=
+        '<div class="ai-launch">'
+        + '<div class="txt"><b>'+t("aiTitle")+'</b><span>'+t("aiDesc")+'</span></div>'
+        + '<button class="btn-ai" id="btnAI">'+aiIcon()+' '+t("summarize")+'</button>'
+        + '</div>';
+    }else{
+      box.innerHTML=
+        '<div class="summary-card fade-in">'
+        + '<div class="sc-head"><span class="ic">'+aiIcon()+'</span><b>'+t("aiSummaryHead")+'</b>'
+        +   '<button class="re" id="btnAI">'+t("regenerate")+'</button></div>'
+        + '<div class="summary-body">'+marked.parse(n.summary)+'</div>'
+        + (n.summary_updated_at?'<div class="sc-time">'+fmtDate(n.summary_updated_at)+'</div>':'')
+        + '</div>';
+    }
+    var b=$("#btnAI"); if(b) b.addEventListener("click",summarize);
+  }
+
+  /* =================== HELPERS =================== */
+  function backIcon(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>'; }
+  function autoGrow(el){ el.style.height="auto"; el.style.height=Math.max(240, el.scrollHeight)+"px"; }
+  function fmtDate(iso){
+    if(!iso) return "";
+    var d=new Date(iso), now=new Date(), diff=(now-d)/1000;
+    if(diff<60) return lang==="en"?"just now":lang==="lo"?"ຫາກໍ່":"เมื่อครู่";
+    if(diff<3600) return Math.floor(diff/60)+(lang==="en"?"m ago":lang==="lo"?" ນທ":" นาที");
+    if(diff<86400) return Math.floor(diff/3600)+(lang==="en"?"h ago":lang==="lo"?" ຊມ":" ชม.");
+    return d.toLocaleDateString(lang==="en"?"en-US":lang==="lo"?"lo-LA":"th-TH",{day:"numeric",month:"short"});
+  }
+  function setView(v){ document.body.setAttribute("data-view", v); }
+
+  /* =================== SUBJECT MODAL =================== */
+  var pickedColor=COLORS[0];
+  function openSubjectModal(){
+    $("#inSubjectName").value=""; pickedColor=COLORS[0];
+    var sw=$("#swatches");
+    sw.innerHTML=COLORS.map(function(c,i){ return '<div class="swatch '+(i===0?"on":"")+'" style="background:'+c+'" data-c="'+c+'"></div>'; }).join("");
+    sw.querySelectorAll(".swatch").forEach(function(el){
+      el.addEventListener("click",function(){
+        sw.querySelectorAll(".swatch").forEach(function(x){x.classList.remove("on");});
+        el.classList.add("on"); pickedColor=el.dataset.c;
+      });
+    });
+    $("#subjectModal").classList.add("show");
+    setTimeout(function(){ $("#inSubjectName").focus(); },50);
+  }
+  function closeSubjectModal(){ $("#subjectModal").classList.remove("show"); }
+  $("#btnAddSubject").addEventListener("click",openSubjectModal);
+  $("#btnCancelSubject").addEventListener("click",closeSubjectModal);
+  $("#subjectModal").addEventListener("click",function(e){ if(e.target===this) closeSubjectModal(); });
+  $("#btnSaveSubject").addEventListener("click",function(){
+    var name=$("#inSubjectName").value.trim();
+    if(!name){ $("#inSubjectName").focus(); return; }
+    createSubject(name, pickedColor); closeSubjectModal();
+  });
+  $("#inSubjectName").addEventListener("keydown",function(e){ if(e.key==="Enter") $("#btnSaveSubject").click(); });
+  $("#btnAddNote").addEventListener("click",createNote);
+
+  /* =================== LANGUAGE =================== */
+  $("#langSwitch").addEventListener("click",function(e){
+    var b=e.target.closest("button"); if(!b) return;
+    lang=b.dataset.lang; localStorage.setItem("nb_lang",lang); applyI18n();
+  });
+
+  /* back buttons (static ones) */
+  document.querySelectorAll("[data-back]").forEach(function(b){
+    b.addEventListener("click",function(){ setView(b.dataset.back); });
+  });
+
+})();
+</script>
+</body>
+</html>
